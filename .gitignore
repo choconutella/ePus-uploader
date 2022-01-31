@@ -1,0 +1,4 @@
+.venv
+log
+requirement.txt
+application.ini
