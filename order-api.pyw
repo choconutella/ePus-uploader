@@ -2,6 +2,7 @@
 import logging
 import configparser
 import http.client
+from shutil import ExecError
 import ssl
 import json
 import os
@@ -67,7 +68,6 @@ class Process(Order):
 
     
     def update_status(self,ono):
-
         conn = http.client.HTTPSConnection(self.config['api']['host'], context = ssl._create_unverified_context())
         payload = {
             "proses_flag" : "1"
@@ -76,7 +76,7 @@ class Process(Order):
             'x-token': f'{self.config["token"]["key"]}',
             'x-username': f'{self.config["api"]["user"]}'
         }
-        conn.request("PUT", f"/v1/orderlab/{ono}", payload, headers)
+        conn.request("PUT", f"/v1/orderlab/{ono}", json.dumps(payload), headers)
         res = conn.getresponse()
         data = res.read() 
         data_as_json = json.loads(data.decode("utf-8"))
@@ -86,8 +86,6 @@ class Process(Order):
     # retrieve order
     def get_order(self):
         today = date.today().strftime('%d%m%Y')
-        today = '27012022'
-        
         if self.is_get_new_token():
             self.get_token()
 
@@ -116,8 +114,8 @@ class Process(Order):
                     
                     order.ono = record['id_Order']
                     order.order_control = record['order_control']
-                    order.pid = record['pasien']['id_Pasien'].lstrip('0')
-                    order.apid = record['pasien']['nik'].lstrip('0')
+                    order.pid = record['pasien']['id_Pasien'][-16:]
+                    order.apid = record['pasien']['nik'][-16:]
                     order.pname = record['pasien']['nama'].replace("'","`").strip()
                     order.address1 = record['pasien']['alamat'].replace("'","`").strip()[:50]
                     order.address2 = (record['pasien']['kelurahan'] + '-' + record['pasien']['kecamatan']).replace("'","`").strip()[:50]
@@ -141,8 +139,11 @@ class Process(Order):
                     order.test_mapping(record['order_test'],'~')
                     order.save()
 
-                    self.update_status(record['id_Order'])
-
+                    try:
+                        self.update_status(record['id_Order'])
+                    except Exception as e:
+                        print(e)
+                        
                 except Exception as e:
                     logging.warning(e)
         print(f'\n\nProcessing {data_as_json["content"]["total"]}')
