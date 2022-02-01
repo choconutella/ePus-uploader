@@ -3,7 +3,7 @@ import logging
 import os
 import configparser
 from datetime import date
-from klass.uploader import Uploader
+from hclab.uploader import Uploader
 
 logging.basicConfig(filename=os.path.join(os.getcwd(),f"log\\log_result.log"),
                     level=logging.WARNING, 

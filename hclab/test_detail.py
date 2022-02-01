@@ -25,6 +25,7 @@ class TestDetail(Uploader):
         self.get_release_data()
         self.get_authorise_data()
         self.get_test_method()
+        self.get_his_code()
 
     def is_profile(self):
         category = 'U'
@@ -34,7 +35,7 @@ class TestDetail(Uploader):
         try:
             self.cursor.execute(sql)
             data = self.cursor.fetchone()
-            if data is not None:
+            if not data is None:
                 category = data[0]
 
         except cx_Oracle.DatabaseError as e:
@@ -52,7 +53,7 @@ class TestDetail(Uploader):
         try:
             self.cursor.execute(sql)
             data = self.cursor.fetchone()
-            if data is not None:
+            if not data is None:
                 self.parent = data[0]
             
         except cx_Oracle.DatabaseError as e:
@@ -70,7 +71,7 @@ class TestDetail(Uploader):
         try:
             self.cursor.execute(sql)
             data = self.cursor.fetchone()
-            if data is not None:
+            if not data is None:
                 self.group_code = data[0]
                 self.group_name = data[1]
             else:
@@ -90,7 +91,7 @@ class TestDetail(Uploader):
         try:
             self.cursor.execute(sql)
             data = self.cursor.fetchone()
-            if data is not None:
+            if not data is None:
                 self.sequence = ('000'+str(data[0]))[-3:] + '_' + ('000'+str(data[1]))[-3:] 
             else:
                 self.sequence = '000_000'
@@ -114,11 +115,11 @@ class TestDetail(Uploader):
             where os_tno = '{self.lno}'
             and od_testcode = '{self.test_cd}'
         """
-        print(sql)
+
         try:
             self.cursor.execute(sql)
             data = self.cursor.fetchone()
-            if data is not None:
+            if not data is None:
                 self.checkin_code = sp_code if sp_code != '' else data[0]
                 self.checkin_name = sp_name if sp_name != '' else data[1]
                 self.checkin_on = sp_on if sp_on != '' else data[2]
@@ -142,11 +143,11 @@ class TestDetail(Uploader):
             and substr(el_comment,0,length('{self.test_cd}')) = '{self.test_cd}'
             group by el_userid, user_name
         """
-        print(sql)
+
         try:
             self.cursor.execute(sql)
             data = self.cursor.fetchone()
-            if data is not None:
+            if not data is None:
                 self.release_by_code = data[0]
                 self.release_by_name = data[1]
                 self.release_on = data[2]
@@ -169,11 +170,11 @@ class TestDetail(Uploader):
             and substr(el_comment,0,length('{self.test_cd}')) = '{self.test_cd}'
             group by el_userid, user_name
         """
-        print(sql)
+
         try:
             self.cursor.execute(sql)
             data = self.cursor.fetchone()
-            if data is not None:
+            if not data is None:
                 self.authorise_by_code = data[0]
                 self.authorise_by_name = data[1]
                 self.authorise_on = data[2]
@@ -193,8 +194,24 @@ class TestDetail(Uploader):
         try:
             self.cursor.execute(sql)
             data = self.cursor.fetchone()
-            if data is not None:
+            if not data is None:
                 self.method = data[0]
             
         except cx_Oracle.DatabaseError as e:
             logging.warning(f"RESULT001-Cannot get test method data. {e}")
+
+    def get_his_code(self):
+        self.his_code = ''
+
+        sql = f"""
+            select tm_his_dcode from test_mapping_res
+            where tm_ti_code = '{self.test_cd}'
+        """
+        try:
+            self.cursor.execute(sql)
+            data = self.cursor.fetchone()
+            if not data is None:
+                self.his_code = data[0]
+        
+        except cx_Oracle.DatabaseError as e:
+            logging.warning(f"RESULT002-Cannot get HIS code. {e}")

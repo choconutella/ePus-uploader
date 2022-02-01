@@ -5,6 +5,8 @@ import logging
 import os
 import time
 import configparser
+import http.client
+import ssl
 from shutil import copy
 from datetime import datetime
 from tkinter import *
@@ -16,22 +18,15 @@ logging.basicConfig(filename=os.path.join(os.getcwd(),f"log\\log_result.log"),
                     level=logging.WARNING, 
                     format="%(asctime)s - %(levelname)s : %(message)s")
 
-
-# ini variable from .ini file
-config = configparser.ConfigParser()
-config.read('application.ini')
-api_dbuser = config['api']['user']
-api_dbpass = config['api']['pass']
-api_dbhost = config['api']['host']
-api_dbname = config['api']['db']
-
-
 class Process(Result):
 
     def __init__(self):
         super(Result,self).__init__("HIS Uploader - Result")
         self.__start_thread = True
 
+        self.config = configparser.ConfigParser()
+        self.config.read('application.ini')
+        
         try:
             self.__thread = threading.Thread(target=self.check_result)
             self.__thread.start()
@@ -41,7 +36,7 @@ class Process(Result):
             self.__start_thread = False
         except:
             logging.warning("Cannot start Thread")
-
+        
 
     def check_result(self):
         """
@@ -58,7 +53,7 @@ class Process(Result):
                 else:
                     if file.endswith('.R01'):
                         self.label.config(text=f"Processing {filename}")
-                        self.post_result(file)
+                        self.get_data_result(file)
                     else:
                         os.remove(file)
             
@@ -66,18 +61,37 @@ class Process(Result):
 
             if self.__start_thread == False:
                 break  
+    
 
+    def post_result(self, ono, results:dict):
+        conn = http.client.HTTPSConnection(self.config['api']['host'], context = ssl._create_unverified_context())
+        payload = {
+            'penanggung_jawab' : {
+                'penanggung_jawab_id' : self.config['person_in_charge']['expertise'],
+                'pemeriksa_id' : self.config['person_in_charge']['validator']
+            },
+            'content' : {}
+        }
+        payload['content'].update(results)
 
-    def post_result(self,file:str):
-        """
-        File result will be inserted to HIS Result table
-        :param file: Path of result file
-        """
+        print(payload)
+
+        headers = {
+            'x-token': f'{self.config["token"]["key"]}',
+            'x-username': f'{self.config["api"]["user"]}'
+        }
+        conn.request("POST", f"/v1/pemeriksaanlab/{ono}", json.dumps(payload), headers)
+        res = conn.getresponse()
+        data = res.read() 
+        data_as_json = json.loads(data.decode("utf-8"))
+        print(json.dumps(data_as_json,indent=3,sort_keys=True))
+        
+
+    def get_data_result(self,file:str):
 
         result = Result(self.lis_user, self.lis_pswd, self.lis_host, file)
 
-        ono = result.ono
-        lno = result.lno
+        dict_results = {}
 
         counter = 1
         while 'obx'+str(counter) in result.obx:
@@ -86,59 +100,42 @@ class Process(Result):
             test_nm = res[1]
             data_type = res[2]
             status = res[7]
-            result_value = ''
+            result_value = unit = flag = ref_range = test_comment =  ''
 
             # handle result MB
             if test_cd == 'MBFTR':
                 test_cd = result.order_testid
                 test_nm = result.order_testnm
 
-            detail = TestDetail(self.lis_user, self.lis_pswd, self.lis_host, lno, test_cd)
+            detail = TestDetail(self.lis_user, self.lis_pswd, self.lis_host, result.lno, test_cd)
 
-            if status == 'I':
-                #SET BLANK VALUE IF CURRENT TESTCODE ONLY CHECK-IN PROCESS
-                unit = flag = ref_range = test_comment =  ''
 
-            elif status == 'F':
+            if status == 'F':
                 
-                if detail.is_profile() :
-                    #SET BLANK VALUE IF CURRENT TESTCODE IS PROFILE TEST
-                    unit = flag = ref_range = test_comment =  ''
-                
-                else:
+                if not detail.is_profile() :
+                    
                     #ASSIGN RESULT PARAMETER VALUE 
-
                     result_value = res[3]                        
                     unit = res[4]
                     flag = res[5]
                     ref_range = res[6]
                     test_comment = res[8]
 
-            disp_seq = detail.sequence + '_' + ('000'+str(counter))[-3:]
 
-            specimen_cd = detail.checkin_code 
-            specimen_nm = detail.checkin_name
-            specimen_by_cd = detail.checkin_by_code
-            specimen_by_nm = detail.checkin_by_name
-            specimen_dt = result.specimen_dt
-            release_by_cd = detail.release_by_code
-            release_by_nm = detail.release_by_name
-            release_on = detail.release_on
-            authorise_by_cd = detail.authorise_by_code
-            authorise_by_nm = detail.authorise_by_name
-            authorise_on = detail.authorise_on
-            phoned_by_cd = ""
-            phoned_by_nm = ""
-            phoned_on = ""
+                dict_result = {counter-1 : {'tarif' : '0', 'hasil' : result_value, 'nilai_normal' : ref_range, 'pemeriksaan' : detail.his_code}}
 
             counter += 1
 
+        
+        dict_results.update(dict_result)
+        self.post_result(result.ono, dict_results)
+
+        
         if os.path.exists(file):
             copy(file,os.path.join(self.temp_result,os.path.basename(file)))
             os.remove(file)
         else:
             logging.warning("RESULTEND-The file does not exist")
-        
-
+    
                     
 process = Process()

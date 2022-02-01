@@ -31,12 +31,10 @@ class Uploader:
         self.lis_pswd = config["lis"]["pass"]
         self.lis_host = config["lis"]["host"]
 
-        #HIS DATABASE CONFIGURATION
-        self.his_user = config["his"]["user"]
-        self.his_pswd = config["his"]["pass"]
-        self.his_host = config["his"]["host"]
-        self.his_port = config["his"]["port"]
-        self.his_db = config["his"]["db"]
+        #API CONFIGURATION
+        self.his_user = config["api"]["user"]
+        self.his_pswd = config["api"]["pass"]
+        self.his_host = config["api"]["host"]
 
         #FILE PATH CONFIGURATION
         self.destdir = config["file"]["order"]
